@@ -1,6 +1,6 @@
 # Don't Remove Credit @VJ_Botz
 # Subscribe YouTube Channel For Amazing Bot @Tech_VJ
-# Ask Doubt on telegram @KingVJ01
+# Ask Doubt on Telegram @KingVJ01
 
 import logging
 from pyrogram import Client, emoji, filters
@@ -24,6 +24,12 @@ async def inline_users(query: InlineQuery):
         return True
     return False
 
+def get_reply_markup(query):
+    """Creates an inline keyboard with a Search Again button"""
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔍 Search Again", switch_inline_query_current_chat=query)]
+    ])
+
 @Client.on_inline_query()
 async def answer(bot, query):
     """Show search results for given inline query"""
@@ -33,8 +39,8 @@ async def answer(bot, query):
         await query.answer(
             results=[],
             cache_time=0,
-            switch_pm_text='okDa',
-            switch_pm_parameter="hehe"
+            switch_pm_text="Access Denied",
+            switch_pm_parameter="access_denied"
         )
         return
 
@@ -42,21 +48,22 @@ async def answer(bot, query):
         await query.answer(
             results=[],
             cache_time=0,
-            switch_pm_text='You have to subscribe my channel to use the bot',
+            switch_pm_text="You have to subscribe to use this bot",
             switch_pm_parameter="subscribe"
         )
         return
 
-    results = []
-    if not query.query.strip(): # If the user doesn't type anything
+    # Prevent empty searches (Ensures user types something)
+    if not query.query.strip():
         await query.answer(
             results=[],
             cache_time=0,
-            switch_pm_text="Type something to search",
+            switch_pm_text="Type something to search 🤦🏻",
             switch_pm_parameter="start"
         )
         return
-        
+
+    # Extract search string and file type
     if '|' in query.query:
         string, file_type = query.query.split('|', maxsplit=1)
         string = string.strip()
@@ -66,68 +73,71 @@ async def answer(bot, query):
         file_type = None
 
     offset = int(query.offset or 0)
-    reply_markup = get_reply_markup(query=string)
+
+    # Get search results
     files, next_offset, total = await get_search_results(chat_id, string, file_type=file_type, max_results=10, offset=offset)
 
-    for file in files:
-        title=file['file_name']
-        size=get_size(file['file_size'])
-        f_caption=file['caption']
-        if CUSTOM_FILE_CAPTION:
-            try:
-                f_caption=CUSTOM_FILE_CAPTION.format(file_name= '' if title is None else title, file_size='' if size is None else size, file_caption='' if f_caption is None else f_caption)
-            except Exception as e:
-                logger.exception(e)
-                f_caption=f_caption
-        if f_caption is None:
-            f_caption = f"{file['file_name']}"
-        results.append(
-            InlineQueryResultCachedDocument(
-                title=file['file_name'],
-                document_file_id=file['file_id'],
-                caption=f_caption,
-                description=f'Size: {get_size(file["file_size"])}',
-                reply_markup=reply_markup
-            )
-        )
-
-    if results:
-        switch_pm_text = f"{emoji.FILE_FOLDER} Results - {total}"
-        if string:
-            switch_pm_text += f" for {string}"
-        try:
-            await query.answer(
-                results=results,
-                is_personal = True,
-                cache_time=cache_time,
-                switch_pm_text=switch_pm_text,
-                switch_pm_parameter="start",
-                next_offset=str(next_offset)
-            )
-        except QueryIdInvalid:
-            pass
-        except Exception as e:
-            logging.exception(str(e))
-    else:
-        switch_pm_text = f'{emoji.CROSS_MARK} No results'
-        if string:
-            switch_pm_text += f' for "{string}"'
-
+    if not files:
         await query.answer(
             results=[],
-            is_personal = True,
+            is_personal=True,
             cache_time=cache_time,
-            switch_pm_text=switch_pm_text,
+            switch_pm_text=f"{emoji.CROSS_MARK} No results for '{string}'",
             switch_pm_parameter="okay"
         )
+        return
 
+    results = []
 
-def get_reply_markup(query):
-    buttons = [[
-        InlineKeyboardButton('Search again', switch_inline_query_current_chat=query)
-    ]]
-    return InlineKeyboardMarkup(buttons)
+    # Add total files found message
+    results.append(
+        InlineQueryResultCachedDocument(
+            title=f"✅ {total} files found for '{string}'",
+            document_file_id=files[0]['file_id'],  # Dummy file to show summary
+            caption=f"📂 {total} results found.\n\nSelect a file below 👇",
+            description="Search results summary",
+            reply_markup=get_reply_markup(string)  # "Search Again" button
+        )
+    )
 
+    # Add actual file results
+    for file in files:
+        title = file['file_name']
+        size = get_size(file['file_size'])
+        f_caption = file.get('caption', title)  # Default caption
 
+        if CUSTOM_FILE_CAPTION:
+            try:
+                f_caption = CUSTOM_FILE_CAPTION.format(
+                    file_name=title or '',
+                    file_size=size or '',
+                    file_caption=f_caption or ''
+                )
+            except Exception as e:
+                logger.exception(e)
 
+        results.append(
+            InlineQueryResultCachedDocument(
+                title=title,
+                document_file_id=file['file_id'],
+                caption=f_caption,
+                description=f"Size: {size}",
+                reply_markup=get_reply_markup(string)  # "Search Again" button below each file
+            )
+        )
+
+    # Send results
+    try:
+        await query.answer(
+            results=results,
+            is_personal=True,
+            cache_time=cache_time,
+            switch_pm_text=f"{emoji.FILE_FOLDER} {total} files found",
+            switch_pm_parameter="start",
+            next_offset=str(next_offset)
+        )
+    except QueryIdInvalid:
+        pass
+    except Exception as e:
+        logger.exception(str(e))
 
