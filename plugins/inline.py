@@ -53,26 +53,26 @@ async def answer(bot, query):
         )
         return
 
-    # Prevent empty searches (Ensures user types something)
-    if not query.query.strip():
+    # Extract search string and file type
+    string = query.query.strip()
+    file_type = None
+
+    if "|" in string:
+        string, file_type = string.split("|", maxsplit=1)
+        string = string.strip()
+        file_type = file_type.strip().lower()
+
+    offset = int(query.offset or 0)
+
+    # If no search input, show "Type something to search"
+    if not string:
         await query.answer(
             results=[],
             cache_time=0,
-            switch_pm_text="Type something to search 🤦🏻",
+            switch_pm_text="Type something to search...",
             switch_pm_parameter="start"
         )
         return
-
-    # Extract search string and file type
-    if '|' in query.query:
-        string, file_type = query.query.split('|', maxsplit=1)
-        string = string.strip()
-        file_type = file_type.strip().lower()
-    else:
-        string = query.query.strip()
-        file_type = None
-
-    offset = int(query.offset or 0)
 
     # Get search results
     files, next_offset, total = await get_search_results(chat_id, string, file_type=file_type, max_results=10, offset=offset)
@@ -83,21 +83,18 @@ async def answer(bot, query):
             is_personal=True,
             cache_time=cache_time,
             switch_pm_text=f"{emoji.CROSS_MARK} No results for '{string}'",
-            switch_pm_parameter="okay"
+            switch_pm_parameter="no_results"
         )
         return
 
     results = []
 
     # Add total files found message
-    results.append(
-        InlineQueryResultCachedDocument(
-            title=f"✅ {total} files found for '{string}'",
-            document_file_id=files[0]['file_id'],  # Dummy file to show summary
-            caption=f"📂 {total} results found.\n\nSelect a file below 👇",
-            description="Search results summary",
-            reply_markup=get_reply_markup(string)  # "Search Again" button
-        )
+    await query.answer(
+        results=[],
+        cache_time=0,
+        switch_pm_text=f"📂 {total} files found for '{string}'",
+        switch_pm_parameter="files_found"
     )
 
     # Add actual file results
