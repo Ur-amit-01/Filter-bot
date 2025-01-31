@@ -48,6 +48,15 @@ async def answer(bot, query):
         return
 
     results = []
+    if not query.query.strip(): # If the user doesn't type anything
+        await query.answer(
+            results=[],
+            cache_time=0,
+            switch_pm_text="Type something to search",
+            switch_pm_parameter="start"
+        )
+        return
+        
     if '|' in query.query:
         string, file_type = query.query.split('|', maxsplit=1)
         string = string.strip()
