@@ -105,7 +105,7 @@ PROTECT_CONTENT = bool(environ.get('PROTECT_CONTENT', False))
 PUBLIC_FILE_STORE = bool(environ.get('PUBLIC_FILE_STORE', False))
 NO_RESULTS_MSG = bool(environ.get("NO_RESULTS_MSG", False))
 USE_CAPTION_FILTER = bool(environ.get('USE_CAPTION_FILTER', True))
-
+STREAM_MODE = bool(environ.get("STREAM_MODE", False))
 
 # Token Verification Info :
 VERIFY = bool(environ.get('VERIFY', False))
